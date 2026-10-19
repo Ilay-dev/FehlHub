@@ -3,93 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Krankheits-Leaderboard</title>
+    <title>FehlHub - Leaderboard</title>
     
+    <!-- Supabase JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Tesseract.js für OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <style>
-        :root { --primary-blue: #1b63a5; --secondary-blue: #3282c9; --bg-color: #f0f4f8; --white: #ffffff; --text-dark: #333333; --text-light: #777777; --border-color: #e0e0e0; --success-color: #28a745; --error-color: #dc3545; --warning-color: #ff9800; }
+        :root { 
+            --primary-blue: #1b63a5; 
+            --secondary-blue: #3282c9; 
+            --bg-color: #f0f4f8; 
+            --white: #ffffff; 
+            --text-dark: #222222; 
+            --text-light: #666666; 
+            --border-color: #ccd5df; 
+            --success-color: #28a745; 
+            --error-color: #dc3545; 
+            --warning-color: #d97706; 
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-dark); display: flex; justify-content: center; }
         #app { width: 100%; max-width: 600px; background-color: var(--bg-color); min-height: 100vh; position: relative; overflow-x: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
 
+        /* --- ICONS STYLING --- */
+        .icon {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            vertical-align: middle;
+            display: inline-block;
+        }
+        .icon-lg { width: 32px; height: 32px; margin-bottom: 8px; }
+
         header { background-color: var(--primary-blue); color: var(--white); height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; position: sticky; top: 0; z-index: 10; }
-        .header-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-        .burger-menu { font-size: 1.5rem; cursor: pointer; padding: 5px; }
+        .header-title { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .burger-menu { cursor: pointer; padding: 5px; display: flex; align-items: center; }
         
-        #sidebar { position: absolute; top: 60px; right: -100%; width: 250px; height: calc(100vh - 60px); background-color: var(--white); box-shadow: -2px 0 5px rgba(0,0,0,0.1); transition: right 0.3s ease; z-index: 9; }
+        #sidebar { position: absolute; top: 60px; right: -100%; width: 260px; height: calc(100vh - 60px); background-color: var(--white); box-shadow: -2px 0 8px rgba(0,0,0,0.15); transition: right 0.3s ease; z-index: 99; }
         #sidebar.open { right: 0; }
-        .menu-item { padding: 20px; border-bottom: 1px solid var(--border-color); font-weight: 500; cursor: pointer; color: var(--primary-blue); display: flex; align-items: center; gap: 10px; }
-        .menu-item:hover { background-color: #f9f9f9; }
+        .menu-item { padding: 18px 20px; border-bottom: 1px solid #edf2f7; font-weight: 600; cursor: pointer; color: var(--primary-blue); display: flex; align-items: center; gap: 12px; }
+        .menu-item:hover { background-color: #f8fafc; }
         .hidden { display: none !important; }
 
         .view { display: none; padding: 15px; animation: fadeIn 0.3s; }
         .view.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
-        .card { background: var(--white); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .card-header { background-color: var(--secondary-blue); color: var(--white); padding: 12px 15px; font-weight: bold; font-size: 0.95rem; text-align: center; }
+        .card { background: var(--white); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .card-header { background-color: var(--secondary-blue); color: var(--white); padding: 12px 15px; font-weight: bold; font-size: 0.95rem; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .card-body { padding: 15px; }
 
         table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
-        th { color: var(--text-light); font-weight: 600; font-size: 0.8rem; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #edf2f7; font-size: 0.9rem; }
+        th { color: var(--text-light); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
         tr:last-child td { border-bottom: none; }
         .rank { font-weight: bold; color: var(--primary-blue); }
         .percent { font-weight: bold; }
-        .empty-state { text-align: center; color: var(--text-light); padding: 20px; }
+        .empty-state { text-align: center; color: var(--text-light); padding: 25px; }
 
+        /* --- FORMULARE & INPUTS --- */
         .form-group { margin-bottom: 15px; }
         .form-row { display: flex; gap: 10px; }
         .form-row .form-group { flex: 1; }
-        label { display: block; font-size: 0.85rem; margin-bottom: 5px; font-weight: 500; }
-        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; font-size: 1rem; }
-        input:disabled { background-color: #f5f5f5; color: #888; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600; color: #334155; }
         
-        .upload-area { border: 2px dashed var(--primary-blue); padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; background-color: #f8fbff; margin-bottom: 20px; }
-        .upload-area:hover { background-color: #e6f0ff; }
+        input, select { 
+            width: 100% !important; 
+            padding: 10px 12px !important; 
+            border: 1px solid #cbd5e1 !important; 
+            border-radius: 6px !important; 
+            font-size: 0.95rem !important;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+            box-shadow: none !important;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--secondary-blue) !important;
+            box-shadow: 0 0 0 2px rgba(50, 130, 201, 0.2) !important;
+        }
+
+        /* Gesperrte Eingabefelder (Readonly) */
+        input[readonly], input:disabled { 
+            background-color: #f8fafc !important; 
+            color: #475569 !important; 
+            -webkit-text-fill-color: #475569 !important;
+            border-color: #e2e8f0 !important;
+            cursor: not-allowed;
+            user-select: none;
+            font-weight: 600;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 40px #ffffff inset !important;
+            -webkit-text-fill-color: #0f172a !important;
+        }
+        
+        .upload-area { border: 2px dashed var(--secondary-blue); padding: 25px; text-align: center; border-radius: 8px; cursor: pointer; background-color: #f8fbff; margin-bottom: 15px; display: block; color: var(--primary-blue); }
+        .upload-area:hover { background-color: #eef6ff; }
         #screenshot-upload { display: none; }
         
-        .btn-submit { background-color: var(--secondary-blue); color: var(--white); border: none; padding: 10px 20px; border-radius: 4px; font-size: 0.9rem; font-weight: bold; cursor: pointer; float: right; margin-top: 10px; }
+        /* BUTTONS */
+        .btn-submit { background-color: var(--secondary-blue); color: var(--white); border: none; padding: 11px 18px; border-radius: 6px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-submit:hover { background-color: var(--primary-blue); }
-        .btn-secondary { background-color: var(--border-color); color: var(--text-dark); border: none; padding: 10px 20px; border-radius: 4px; font-size: 0.9rem; font-weight: bold; cursor: pointer; float: left; margin-top: 10px; }
-        .clearfix::after { content: ""; clear: both; display: table; }
+        
+        .btn-secondary { background-color: #e2e8f0; color: #1e293b; border: none; padding: 11px 18px; border-radius: 6px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-secondary:hover { background-color: #cbd5e1; }
 
-        /* --- TOAST POPUP SYSTEM (NEU) --- */
+        .form-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .form-actions button { flex: 1; }
+
+        /* TOASTS */
         #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 400px; }
-        .toast { background-color: var(--success-color); color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.95rem; text-align: center; font-weight: bold; animation: slideUp 0.3s ease-out; }
+        .toast { background-color: var(--success-color); color: white; padding: 14px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); font-size: 0.9rem; text-align: center; font-weight: 600; animation: slideUp 0.3s ease-out; }
         .toast.error { background-color: var(--error-color); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
-        .loading-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; color: var(--primary-blue); font-weight: bold;}
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-blue); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-bottom: 10px; }
+        .loading-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 25px; color: var(--primary-blue); font-weight: 600;}
+        .spinner { border: 4px solid #e2e8f0; border-top: 4px solid var(--primary-blue); border-radius: 50%; width: 34px; height: 34px; animation: spin 1s linear infinite; margin-bottom: 12px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        hr { border: 0; border-top: 1px solid var(--border-color); margin: 20px 0; }
+        hr { border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0; }
         h4 { margin-bottom: 10px; color: var(--primary-blue); }
         
-        .msg { padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 0.85rem; display: none; }
-        .msg-warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .msg-warning { background-color: #fffbeb; color: #92400e; border: 1px solid #fef3c7; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.85rem; display: none; line-height: 1.4; }
     </style>
 </head>
 <body>
 
     <div id="app">
         <header>
-            <div class="header-title"><span>FehlHub</span></div>
-            <div class="burger-menu" onclick="toggleMenu()">☰</div>
+            <div class="header-title">
+                <!-- Graduation Cap Icon -->
+                <svg class="icon" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/></svg>
+                <span>FehlHub</span>
+            </div>
+            <!-- Burger Icon -->
+            <div class="burger-menu" onclick="toggleMenu()">
+                <svg class="icon" style="width:24px; height:24px;" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            </div>
         </header>
 
         <div id="sidebar">
-            <div class="menu-item" onclick="navigate('leaderboard')">🏆 Gesamt Leaderboard</div>
-            <div class="menu-item" onclick="navigate('fach-leaderboard')">📚 Fach-Leaderboards</div>
-            <div class="menu-item hidden" id="menu-add" onclick="navigate('addEntry')">➕ Neuer Eintrag (Scan)</div>
-            <div class="menu-item" id="menu-login" onclick="navigate('auth')">👤 Login / Registrieren</div>
-            <div class="menu-item hidden" id="menu-account" onclick="navigate('account')">⚙️ Account verwalten</div>
+            <div class="menu-item" onclick="navigate('leaderboard')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M4 3h16v7a8 8 0 0 1-16 0V3z"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
+                <span>Gesamt Leaderboard</span>
+            </div>
+            <div class="menu-item" onclick="navigate('fach-leaderboard')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span>Fach-Leaderboards</span>
+            </div>
+            <div class="menu-item hidden" id="menu-add" onclick="navigate('addEntry')">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span>Neuer Eintrag (Scan)</span>
+            </div>
+            <div class="menu-item" id="menu-login" onclick="navigate('auth')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>Login / Registrieren</span>
+            </div>
+            <div class="menu-item hidden" id="menu-account" onclick="navigate('account')">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Account verwalten</span>
+            </div>
         </div>
 
-        <div id="toast-container"></div> <!-- Container für Popups -->
+        <div id="toast-container"></div>
 
         <!-- VIEW: GESAMT LEADERBOARD -->
         <main id="view-leaderboard" class="view active">
@@ -118,7 +208,7 @@
                         <option value="chemie">Chemie</option>
                     </select>
                 </div>
-                <div class="card-body" style="padding: 0; border-top: 1px solid #eee;">
+                <div class="card-body" style="padding: 0; border-top: 1px solid #edf2f7;">
                     <table>
                         <thead><tr><th>#</th><th>Name</th><th>Krank %</th></tr></thead>
                         <tbody id="fach-leaderboard-body"></tbody>
@@ -130,29 +220,60 @@
         <!-- VIEW: NEUER EINTRAG (SCAN) -->
         <main id="view-addEntry" class="view">
             <div class="card">
-                <div class="card-header">Neue Krankmeldung scannen</div>
+                <div class="card-header">Screenshot hochladen</div>
                 <div class="card-body clearfix">
                     <label class="upload-area" onclick="document.getElementById('screenshot-upload').click()">
-                        📸 <strong>Klicke hier, um einen Screenshot hochzuladen</strong><br>
-                        <small>Die Prozente werden automatisch erkannt.</small>
+                        <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><br>
+                        <strong>Screenshot auswählen</strong><br>
+                        <small style="color: #64748b;">Automatische Erkennung für Gesamtwert & Fächer</small>
                     </label>
                     <input type="file" id="screenshot-upload" accept="image/*" onchange="processImage(event)">
 
                     <div id="ocr-loading" class="loading-overlay">
                         <div class="spinner"></div>
-                        <span id="ocr-status-text">Analysiere Bild...</span>
+                        <span id="ocr-status-text">Analysiere Screenshot präzise...</span>
                     </div>
 
-                    <div id="scan-warning" class="msg msg-warning"></div>
+                    <div id="scan-warning" class="msg-warning"></div>
 
+                    <!-- FORMULAR MIT GESPERRTEN WERTEN (NUR PRÜFUNG) -->
                     <form id="entryForm" onsubmit="handleEntrySubmit(event)" style="display:none;">
-                        <hr><p style="font-size:0.8rem; color:#666; margin-bottom: 10px;">Bitte überprüfe die erkannten Werte.</p>
-                        <div class="form-group"><label>Name</label><input type="text" id="name" required placeholder="z.B. Max Mustermann"></div>
-                        <div class="form-group" style="background: #eef5ff; padding: 10px; border-radius: 5px;"><label><strong>Gesamt Abwesenheit in %</strong></label><input type="number" id="percentage" required min="0" max="100" step="0.01"></div>
-                        <div class="form-row"><div class="form-group"><label>Deutsch %</label><input type="number" id="pct-deutsch" required min="0" max="100" step="0.01"></div><div class="form-group"><label>Mathe %</label><input type="number" id="pct-mathe" required min="0" max="100" step="0.01"></div></div>
-                        <div class="form-row"><div class="form-group"><label>Kunst %</label><input type="number" id="pct-kunst" required min="0" max="100" step="0.01"></div><div class="form-group"><label>Physik %</label><input type="number" id="pct-physik" required min="0" max="100" step="0.01"></div></div>
-                        <div class="form-row"><div class="form-group"><label>Chemie %</label><input type="number" id="pct-chemie" required min="0" max="100" step="0.01"></div><div class="form-group"><label>Datum</label><input type="text" id="date" disabled></div></div>
-                        <button type="submit" id="submitBtn" class="btn-submit">Werte Speichern</button>
+                        <hr>
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="name" required placeholder="z.B. Max Mustermann">
+                        </div>
+                        
+                        <div class="form-group" style="background: #f1f8fe; padding: 12px; border-radius: 8px; border: 1px solid #d0e7ff;">
+                            <label style="color: var(--primary-blue);"><strong>Gesamt-Abwesenheit (Scan-Wert)</strong></label>
+                            <input type="number" id="percentage" readonly required step="0.01" style="font-weight: 700; font-size: 1.1rem !important;">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group"><label>Deutsch %</label><input type="number" id="pct-deutsch" readonly step="0.01"></div>
+                            <div class="form-group"><label>Mathe %</label><input type="number" id="pct-mathe" readonly step="0.01"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group"><label>Kunst %</label><input type="number" id="pct-kunst" readonly step="0.01"></div>
+                            <div class="form-group"><label>Physik %</label><input type="number" id="pct-physik" readonly step="0.01"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group"><label>Chemie %</label><input type="number" id="pct-chemie" readonly step="0.01"></div>
+                            <div class="form-group"><label>Datum</label><input type="text" id="date" disabled></div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="cancelScan()">
+                                <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <span>Abbrechen</span>
+                            </button>
+                            <button type="submit" id="submitBtn" class="btn-submit">
+                                <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                                <span>Akzeptieren</span>
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -162,10 +283,12 @@
         <main id="view-auth" class="view">
             <div class="card"><div class="card-header">Login</div><div class="card-body clearfix">
                 <form id="authForm" onsubmit="handleAuth(event)">
-                    <div class="form-group"><label>E-Mail</label><input type="email" id="email" required></div>
-                    <div class="form-group"><label>Passwort</label><input type="password" id="password" required></div>
-                    <button type="button" class="btn-secondary" onclick="handleAuth(event, 'register')">Registrieren</button>
-                    <button type="button" class="btn-submit" onclick="handleAuth(event, 'login')">Login</button>
+                    <div class="form-group"><label>E-Mail</label><input type="email" id="email" required autocomplete="email"></div>
+                    <div class="form-group"><label>Passwort</label><input type="password" id="password" required autocomplete="current-password"></div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="handleAuth(event, 'register')">Registrieren</button>
+                        <button type="button" class="btn-submit" onclick="handleAuth(event, 'login')">Login</button>
+                    </div>
                 </form>
             </div></div>
         </main>
@@ -174,11 +297,16 @@
         <main id="view-account" class="view">
             <div class="card"><div class="card-header">Account verwalten</div><div class="card-body">
                 <p style="text-align: center; margin-bottom: 10px;">Eingeloggt als:<br><strong id="acc-email-display"></strong></p><hr>
-                <button class="btn-secondary" style="width:100%; float:none" onclick="handleLogout()">🚪 Abmelden</button>
+                <button class="btn-secondary" style="width:100%;" onclick="handleLogout()">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span>Abmelden</span>
+                </button>
             </div></div>
         </main>
 
     </div>
+
+    <canvas id="pre-canvas" style="display:none;"></canvas>
 
     <script>
         /* =========================================
@@ -188,42 +316,134 @@
         const supabaseKey = 'sb_publishable_kiSJekM2F38Ib_4cbp5k9A_Widua6Hg';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-        /* =========================================
-           NEU: TOAST POPUP LOGIK
-           ========================================= */
         function showToast(message, type = 'success', duration = 5000) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = message;
+            toast.innerText = message;
             container.appendChild(toast);
             
-            // Verschwindet nach X Sekunden automatisch
             setTimeout(() => {
                 toast.style.opacity = '0';
                 toast.style.transform = 'translateY(20px)';
                 toast.style.transition = 'all 0.4s ease';
-                setTimeout(() => toast.remove(), 400); // Wartet bis Animation fertig ist
+                setTimeout(() => toast.remove(), 400);
             }, duration);
         }
 
         /* =========================================
-           4. UI & AUTHENTIFIZIERUNG (mit Auto-Login Erkennung)
+           2. BILDOPTIMIERUNG & OCR SCANNER
+           ========================================= */
+        async function processImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const form = document.getElementById('entryForm');
+            const loading = document.getElementById('ocr-loading');
+            const warningBox = document.getElementById('scan-warning');
+            
+            form.style.display = 'none'; 
+            warningBox.style.display = 'none'; 
+            loading.style.display = 'flex';
+            document.getElementById('ocr-status-text').innerText = "Bereite Bild vor & scanne...";
+
+            try {
+                const optimizedImageBlob = await preprocessImage(file);
+                const worker = await Tesseract.createWorker('deu');
+                const ret = await worker.recognize(optimizedImageBlob);
+                await worker.terminate();
+
+                parseExtractedText(ret.data.text);
+            } catch (error) { 
+                console.error(error);
+                showToast("Fehler beim Verarbeiten des Screenshots.", "error", 4000); 
+            } finally { 
+                loading.style.display = 'none'; 
+                form.style.display = 'block'; 
+                document.getElementById('date').value = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); 
+            }
+        }
+
+        function preprocessImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.getElementById('pre-canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    ctx.filter = 'contrast(1.4) grayscale(1)';
+                    ctx.drawImage(canvas, 0, 0);
+                    canvas.toBlob((blob) => resolve(blob));
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        function parseExtractedText(rawText) {
+            let fehlende = [];
+            const text = rawText.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ');
+
+            // Header-Bereich für Gesamt-Wert isolieren
+            const parts = text.split(/(?:nach\s+F[äa]chern|Fach\s+Abwesenheit)/i);
+            const headerBereich = parts[0]; 
+
+            const gesamtMatch = headerBereich.match(/(\d+[\.,]\d+|\d+)\s*%/);
+            if (gesamtMatch) {
+                document.getElementById('percentage').value = parseFloat(gesamtMatch[1].replace(',', '.'));
+            } else {
+                document.getElementById('percentage').value = 0;
+                fehlende.push("Gesamtwert");
+            }
+
+            // Fächer isolieren
+            const faecherDef = [
+                { id: 'pct-deutsch', name: 'Deutsch', regex: /(?:Deutsch)[^%\n\r]{0,35}?(\d+[\.,]?\d*)\s*%/i },
+                { id: 'pct-mathe',   name: 'Mathematik', regex: /(?:Mathematik|Mathe)[^%\n\r]{0,35}?(\d+[\.,]?\d*)\s*%/i },
+                { id: 'pct-kunst',   name: 'Kunst', regex: /(?:Kunst)[^%\n\r]{0,35}?(\d+[\.,]?\d*)\s*%/i },
+                { id: 'pct-physik',  name: 'Physik', regex: /(?:Physik)[^%\n\r]{0,35}?(\d+[\.,]?\d*)\s*%/i },
+                { id: 'pct-chemie',  name: 'Chemie', regex: /(?:Chemie)[^%\n\r]{0,35}?(\d+[\.,]?\d*)\s*%/i }
+            ];
+
+            faecherDef.forEach(fach => {
+                const match = text.match(fach.regex);
+                if (match) {
+                    document.getElementById(fach.id).value = parseFloat(match[1].replace(',', '.'));
+                } else {
+                    document.getElementById(fach.id).value = 0;
+                    fehlende.push(fach.name);
+                }
+            });
+
+            const warningBox = document.getElementById('scan-warning');
+            if (fehlende.length > 0) {
+                warningBox.innerHTML = `<strong>Hinweis:</strong> Folgende Werte wurden nicht auf dem Bild gefunden (evtl. abgeschnitten) und auf 0 gesetzt: <br><em>${fehlende.join(', ')}</em>.`;
+                warningBox.style.display = 'block';
+            }
+        }
+
+        // AKTION: ABBRECHEN
+        function cancelScan() {
+            document.getElementById('entryForm').reset();
+            document.getElementById('entryForm').style.display = 'none';
+            document.getElementById('scan-warning').style.display = 'none';
+            document.getElementById('screenshot-upload').value = '';
+            showToast("Scan verworfen.", "error", 2500);
+        }
+
+        /* =========================================
+           3. DATENBANK LOGIK & UI
            ========================================= */
         supabaseClient.auth.onAuthStateChange((event, session) => {
             const user = session?.user;
-            
-            // Wenn Supabase meldet: Ein User wurde gerade erfolgreich eingeloggt (z.B. durch Email Link)
             if (event === 'SIGNED_IN') {
-                showToast("Erfolgreich eingeloggt! Willkommen zurück.", 'success', 4000);
-                
-                // Räumt die hässlichen Tokens (#access_token=...) aus der Adresszeile oben auf!
+                showToast("Erfolgreich eingeloggt!", 'success', 4000);
                 if(window.location.hash.includes("access_token")) {
                     window.history.replaceState(null, document.title, window.location.pathname);
                 }
                 navigate('leaderboard');
             }
-
             document.getElementById('menu-add').classList.toggle('hidden', !user);
             document.getElementById('menu-account').classList.toggle('hidden', !user);
             document.getElementById('menu-login').classList.toggle('hidden', !!user);
@@ -233,20 +453,18 @@
         async function handleAuth(event, action) {
             event.preventDefault(); 
             const e = document.getElementById('email').value, p = document.getElementById('password').value;
-            if(!e || !p) { showToast("Bitte E-Mail und Passwort eingeben.", "error", 3000); return; }
+            if(!e || !p) return showToast("Bitte beide Felder ausfüllen", "error", 3000);
             
             if (action === 'register') {
                 const { error } = await supabaseClient.auth.signUp({ email: e, password: p });
-                if (error) {
-                    showToast("Fehler: " + error.message, 'error', 4000);
-                } else {
-                    // Das gewünschte 5-Sekunden Pop-up!
-                    showToast("✉️ Bestätigungs-E-Mail wurde verschickt! Bitte klicke auf den Link in der E-Mail.", 'success', 5000);
+                if (error) showToast("Fehler: " + error.message, 'error', 4000);
+                else {
+                    showToast("Bestätigungs-E-Mail wurde verschickt! Bitte Postfach prüfen.", 'success', 5000);
                     document.getElementById('authForm').reset();
                 }
             } else if (action === 'login') {
                 const { error } = await supabaseClient.auth.signInWithPassword({ email: e, password: p });
-                if (error) showToast("Login fehlgeschlagen. Daten falsch.", 'error', 4000);
+                if (error) showToast("Login fehlgeschlagen. Daten prüfen.", 'error', 4000);
             }
         }
         
@@ -256,7 +474,6 @@
             navigate('leaderboard'); 
         }
 
-        // --- NAVIGATION ---
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); }
         function navigate(viewName) {
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
@@ -266,68 +483,56 @@
             if(viewName === 'fach-leaderboard') loadFachLeaderboard(); 
         }
 
-        /* =========================================
-           OCR & DATENBANK LOGIK (Unverändert gut)
-           ========================================= */
-        async function processImage(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const form = document.getElementById('entryForm'), loading = document.getElementById('ocr-loading'), warningBox = document.getElementById('scan-warning');
-            form.style.display = 'none'; warningBox.style.display = 'none'; loading.style.display = 'flex';
-            document.getElementById('ocr-status-text').innerText = "Analysiere Bild...";
-            try {
-                const worker = await Tesseract.createWorker('deu');
-                const ret = await worker.recognize(file);
-                parseExtractedText(ret.data.text);
-                await worker.terminate();
-            } catch (error) { alert("Fehler beim Scannen."); } 
-            finally { loading.style.display = 'none'; form.style.display = 'block'; document.getElementById('date').value = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-        }
-
-        function parseExtractedText(text) {
-            let fehlende = [];
-            let gesamtMatch = text.match(/(?:insgesamt|Abwesenheit).*?(\d+[,.]\d*|\d+)\s*%/is) || text.match(/(\d+[,.]\d*|\d+)\s*%/);
-            document.getElementById('percentage').value = gesamtMatch ? parseFloat(gesamtMatch[1].replace(',', '.')) : (fehlende.push("Gesamt"), 0);
-
-            const faecherMap = { 'pct-deutsch': 'Deutsch', 'pct-mathe': 'Mathematik', 'pct-kunst': 'Kunst', 'pct-physik': 'Physik', 'pct-chemie': 'Chemie' };
-            for (const [id, wort] of Object.entries(faecherMap)) {
-                const m = text.match(new RegExp(wort + '.*?(\\d+[,.]?\\d*)\\s*%', 'i'));
-                document.getElementById(id).value = m ? parseFloat(m[1].replace(',', '.')) : (fehlende.push(wort), 0);
-            }
-            if (fehlende.length > 0) {
-                const w = document.getElementById('scan-warning');
-                w.innerHTML = `<strong>⚠️ Achtung:</strong> Bild evtl. abgeschnitten. Nicht gefunden (auf 0 gesetzt): <br><em>${fehlende.join(', ')}</em>.`;
-                w.style.display = 'block';
-            }
-        }
-
         async function fetchLeaderboardData() { const { data, error } = await supabaseClient.from('krankenstand').select('*'); return error ? [] : data; }
 
         async function loadLeaderboard() {
-            const tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Lade...</td></tr>';
+            const tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Lade Daten...</td></tr>';
             let data = await fetchLeaderboardData(); data.sort((a, b) => b.percentage - a.percentage);
-            tbody.innerHTML = data.length === 0 ? '<tr><td colspan="4" class="empty-state">Keine Einträge</td></tr>' : '';
+            tbody.innerHTML = data.length === 0 ? '<tr><td colspan="4" class="empty-state">Noch keine Einträge</td></tr>' : '';
             data.forEach((row, idx) => tbody.innerHTML += `<tr><td class="rank">${idx + 1}</td><td>${row.name}</td><td class="percent">${Number(row.percentage).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td><td>${row.date}</td></tr>`);
         }
 
         async function loadFachLeaderboard() {
-            const fach = document.getElementById('fach-select').value, tbody = document.getElementById('fach-leaderboard-body'); tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Lade...</td></tr>';
+            const fach = document.getElementById('fach-select').value, tbody = document.getElementById('fach-leaderboard-body'); tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Lade Daten...</td></tr>';
             let data = await fetchLeaderboardData(); data.sort((a, b) => (b[fach] || 0) - (a[fach] || 0));
-            tbody.innerHTML = data.length === 0 ? '<tr><td colspan="3" class="empty-state">Keine Einträge</td></tr>' : '';
+            tbody.innerHTML = data.length === 0 ? '<tr><td colspan="3" class="empty-state">Keine Einträge vorhanden</td></tr>' : '';
             data.forEach((row, idx) => tbody.innerHTML += `<tr><td class="rank">${idx + 1}</td><td>${row.name}</td><td class="percent">${Number(row[fach] || 0).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%</td></tr>`);
         }
 
+        // AKTION: AKZEPTIEREN & SPEICHERN
         async function handleEntrySubmit(event) {
             event.preventDefault(); 
             const btn = document.getElementById('submitBtn'); btn.disabled = true; btn.innerText = "Speichert...";
-            const insertData = { name: document.getElementById('name').value, date: document.getElementById('date').value, percentage: parseFloat(document.getElementById('percentage').value), deutsch: parseFloat(document.getElementById('pct-deutsch').value), mathe: parseFloat(document.getElementById('pct-mathe').value), kunst: parseFloat(document.getElementById('pct-kunst').value), physik: parseFloat(document.getElementById('pct-physik').value), chemie: parseFloat(document.getElementById('pct-chemie').value) };
+            
+            const insertData = { 
+                name: document.getElementById('name').value, 
+                date: document.getElementById('date').value, 
+                percentage: parseFloat(document.getElementById('percentage').value), 
+                deutsch: parseFloat(document.getElementById('pct-deutsch').value), 
+                mathe: parseFloat(document.getElementById('pct-mathe').value), 
+                kunst: parseFloat(document.getElementById('pct-kunst').value), 
+                physik: parseFloat(document.getElementById('pct-physik').value), 
+                chemie: parseFloat(document.getElementById('pct-chemie').value) 
+            };
+
             const { error } = await supabaseClient.from('krankenstand').insert([insertData]);
-            btn.disabled = false; btn.innerText = "Werte Speichern";
-            if (error) showToast("Fehler: " + error.message, "error", 4000); 
-            else { showToast("Eintrag gespeichert!", "success", 3000); document.getElementById('entryForm').reset(); document.getElementById('entryForm').style.display = 'none'; navigate('leaderboard'); }
+            btn.disabled = false; btn.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Akzeptieren`;
+            
+            if (error) {
+                showToast("Fehler: " + error.message, "error", 4000); 
+            } else { 
+                showToast("Eintrag erfolgreich hinzugefügt!", "success", 3000); 
+                document.getElementById('entryForm').reset(); 
+                document.getElementById('entryForm').style.display = 'none'; 
+                document.getElementById('screenshot-upload').value = '';
+                navigate('leaderboard'); 
+            }
         }
 
-        window.onload = async () => { loadLeaderboard(); const { data: { session } } = await supabaseClient.auth.getSession(); };
+        window.onload = async () => { 
+            loadLeaderboard(); 
+            const { data: { session } } = await supabaseClient.auth.getSession(); 
+        };
     </script>
 </body>
 </html>
